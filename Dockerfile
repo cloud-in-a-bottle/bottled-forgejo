@@ -1,4 +1,4 @@
-FROM codeberg.org/forgejo/forgejo:14
+FROM codeberg.org/forgejo/forgejo:15
 
 # Runtime additions on top of the upstream Forgejo image:
 #
