@@ -19,6 +19,10 @@ if [ "$PERSIST" != "/data" ]; then
         rm -rf "$link"
         ln -sf "$target" "$link"
     done
+    # The upstream setup creates .ssh as root and checks only /data/git's
+    # symlink ownership before its chown. Create it before our ownership pass
+    # so Forgejo can write authorized_keys on the very first boot.
+    mkdir -p "$PERSIST/git/.ssh"
     # The entrypoint's chown on symlinks doesn't reach the targets,
     # so we must fix ownership on the actual persistent directories.
     chown -R git:git "$PERSIST"
