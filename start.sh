@@ -19,6 +19,10 @@ if [ "$PERSIST" != "/data" ]; then
         rm -rf "$link"
         ln -sf "$target" "$link"
     done
+    # The upstream setup creates .ssh as root and checks only /data/git's
+    # symlink ownership before its chown. Create it before our ownership pass
+    # so Forgejo can write authorized_keys on the very first boot.
+    mkdir -p "$PERSIST/git/.ssh"
     # The entrypoint's chown on symlinks doesn't reach the targets,
     # so we must fix ownership on the actual persistent directories.
     chown -R git:git "$PERSIST"
@@ -114,7 +118,14 @@ export FORGEJO__server__ROOT_URL="$ROOT_URL"
 # (b) X-Openhost-User stamped if the visitor is the OpenHost owner.
 export FORGEJO__server__HTTP_PORT="3001"
 export FORGEJO__server__HTTP_ADDR="127.0.0.1"
-export FORGEJO__server__DISABLE_SSH="true"
+# The upstream image's OpenSSH service listens inside the container on 22;
+# Cloud in a Bottle publishes it on host port 2222 (see [[ports]]).
+# Keep the listener separate from the port advertised in clone URLs.
+export SSH_LISTEN_PORT="22"
+export FORGEJO__server__DISABLE_SSH="false"
+export FORGEJO__server__START_SSH_SERVER="false"
+export FORGEJO__server__SSH_DOMAIN="$DOMAIN_NAME"
+export FORGEJO__server__SSH_PORT="${FORGEJO__server__SSH_PORT:-2222}"
 
 export FORGEJO__database__DB_TYPE="sqlite3"
 

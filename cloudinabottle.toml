@@ -1,11 +1,16 @@
 [app]
 name = "forgejo"
-version = "0.2.1"
+version = "0.3.0"
 description = "Forgejo code hosting with Cloud in a Bottle SSO admin and password auth for invited users"
 
 [runtime.container]
 image = "Dockerfile"
 port = 3000
+
+[[ports]]
+label = "ssh"
+container_port = 22
+host_port = 2222
 
 [routing]
 health_check = "/api/healthz"

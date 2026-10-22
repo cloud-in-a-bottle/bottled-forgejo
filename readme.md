@@ -12,7 +12,7 @@ Cloud in a Bottle app.
 - Invited users log in with Forgejo-local passwords (accounts created by the
   admin).
 - Walk-in registration disabled. New accounts require admin action.
-- Git over HTTPS (SSH disabled). Authenticate with personal access tokens.
+- Git over SSH on port 2222 with SSH keys, or HTTPS with personal access tokens.
 - Issues, pull requests, releases, wikis, webhooks, organizations.
 
 ## Usage
@@ -27,12 +27,32 @@ To invite collaborators:
 2. Set a temporary password and hand it to the user out of band.
 3. They log in at `/user/login` and change the password in their settings.
 
-Git operations use HTTPS. Create a personal access token under Settings,
+For Git over HTTPS, create a personal access token under Settings,
 Applications, then use it as the password when cloning or pushing.
+
+### Git over SSH
+
+Add your public SSH key under Settings, SSH / GPG Keys, then copy the SSH clone
+URL from your repository. For example:
+
+```sh
+git clone ssh://git@forgejo.<zone>:2222/your-username/your-repository.git
+```
+
+SSH authenticates with your Forgejo account's keys and repository permissions.
+The SSH username is always `git`, including for the Cloud in a Bottle owner.
+Port 2222 connects directly to the app's OpenSSH server; the instance's
+administrative SSH remains on port 22. The SSH server's host keys and your
+registered keys persist across app updates and restarts.
+
+The instance must accept inbound TCP connections on port 2222. HTTP-only
+tunnels do not carry SSH traffic. If you change the published `ssh` port when
+installing the app, set `FORGEJO__server__SSH_PORT` to the same number in
+`$OPENHOST_APP_DATA_DIR/openhost.env` and reload the app so its clone URLs match.
 
 ## Caveats
 
-- SSH is disabled. Use HTTPS + personal access tokens for git.
+- Port 2222 must be available on the instance for the default SSH mapping.
 - No SMTP configured. Email features (activation links, password reset,
   notification delivery) do not work without adding SMTP settings.
 - Walk-in registration returns 403. Accounts must be admin-created.
@@ -44,6 +64,8 @@ All persistent data lives under `$OPENHOST_APP_DATA_DIR/`:
 - `gitea/forgejo.db`: SQLite database (users, repos, issues, settings)
 - `gitea/conf/app.ini`: effective configuration
 - `git/repositories/`: bare git repos
+- `git/.ssh/authorized_keys`: registered SSH keys with restricted Git commands
+- `ssh/`: SSH server host keys
 - `.secret_key`: generated on first boot, persisted
 
 ## Resources
