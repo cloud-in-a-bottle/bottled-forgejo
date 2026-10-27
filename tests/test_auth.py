@@ -57,9 +57,14 @@ def test_auth_proxy_ignores_a_forged_user_header(stack: OpenhostStack) -> None:
     # Straight to the container, past the router: only the router's owner header may sign someone in, never a
     # client-supplied X-Openhost-User.
     forged = requests.get(
-        f"{stack.app_url}/api/v1/user", headers={"X-Openhost-User": stack.owner_username}, timeout=30
+        f"{stack.app_url}/user/settings",
+        headers={**HTML, "X-Openhost-User": stack.owner_username},
+        allow_redirects=False,
+        timeout=30,
     )
-    assert forged.status_code == 401, f"forged X-Openhost-User accepted: {forged.status_code}: {forged.text[:300]}"
+    assert forged.status_code in (302, 303) and "/user/login" in forged.headers.get("Location", ""), (
+        f"forged X-Openhost-User signed someone in: {forged.status_code}: {forged.text[:300]}"
+    )
 
 
 def test_data_is_stored_under_app_data(stack: OpenhostStack) -> None:
