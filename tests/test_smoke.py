@@ -14,3 +14,12 @@ def test_app_serves_owner(stack: OpenhostStack) -> None:
     assert response.status_code < 400, (
         f"GET / returned {response.status_code}: {response.text[:500]}\n\napp logs:\n{stack.app_logs()[-5000:]}"
     )
+
+
+def test_root_url_matches_router_url(stack: OpenhostStack) -> None:
+    # The harness zone domain carries the router's port (eg harness.localhost:59285), so ROOT_URL must be plain http
+    # with that port, exactly as the browser reaches the app. Forgejo's OIDC discovery document reports ROOT_URL as
+    # its issuer (without the trailing slash).
+    response = stack.owner_session.get(f"{stack.url}/.well-known/openid-configuration", timeout=30)
+    assert response.status_code == 200, f"{response.status_code}: {response.text[:500]}"
+    assert response.json()["issuer"] == stack.url

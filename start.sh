@@ -72,15 +72,21 @@ fi
 # Derive domain and ROOT_URL from OpenHost environment.
 # In production, the router terminates TLS and the app is at https://<subdomain>.<zone>.
 # In dev (lvh.me), there's no TLS and the router exposes on a non-standard port.
+# On a dev router or in the test harness the zone domain itself carries that
+# port (eg harness.localhost:59285); real zones never do. DOMAIN_NAME is the
+# bare hostname (Forgejo's DOMAIN and SSH_DOMAIN); the port goes in ROOT_URL.
 if [ -n "$OPENHOST_ZONE_DOMAIN" ]; then
     APP_SUBDOMAIN="${OPENHOST_APP_NAME:-forgejo}"
-    DOMAIN_NAME="${APP_SUBDOMAIN}.${OPENHOST_ZONE_DOMAIN}"
+    ZONE_HOST="${OPENHOST_ZONE_DOMAIN%%:*}"
+    DOMAIN_NAME="${APP_SUBDOMAIN}.${ZONE_HOST}"
 
-    case "$OPENHOST_ZONE_DOMAIN" in
+    case "$ZONE_HOST" in
         lvh.me|*.lvh.me|localhost|*.localhost)
             # Dev environment — use http with the router's external port
             ROUTER_PORT=""
-            if [ -n "$OPENHOST_ROUTER_URL" ]; then
+            if [ "$ZONE_HOST" != "$OPENHOST_ZONE_DOMAIN" ]; then
+                ROUTER_PORT="${OPENHOST_ZONE_DOMAIN##*:}"
+            elif [ -n "$OPENHOST_ROUTER_URL" ]; then
                 ROUTER_PORT=$(echo "$OPENHOST_ROUTER_URL" | sed -n 's/.*:\([0-9]*\)$/\1/p')
             fi
             ROOT_URL="http://${DOMAIN_NAME}${ROUTER_PORT:+:$ROUTER_PORT}/"
@@ -157,8 +163,8 @@ export FORGEJO__log__LEVEL="Info"
 # 'webhook can only call allowed HTTP servers'.
 #
 # We allow:
-#   * '*.${OPENHOST_ZONE_DOMAIN}' so any sibling app on this zone
-#     is reachable as a webhook target.
+#   * '*.<zone hostname>' (port stripped) so any sibling app on this
+#     zone is reachable as a webhook target.
 #   * 'private' (RFC1918 ranges) so the hairpin gateway IP itself
 #     is allowed once /etc/hosts pins resolve there.
 #   * 'external' to preserve the default allow for public IPs.
@@ -167,7 +173,7 @@ export FORGEJO__log__LEVEL="Info"
 # is a no-op if the variable is already set in the environment.
 if [ -z "${FORGEJO__webhook__ALLOWED_HOST_LIST:-}" ]; then
     if [ -n "$OPENHOST_ZONE_DOMAIN" ]; then
-        export FORGEJO__webhook__ALLOWED_HOST_LIST="*.${OPENHOST_ZONE_DOMAIN},private,external"
+        export FORGEJO__webhook__ALLOWED_HOST_LIST="*.${OPENHOST_ZONE_DOMAIN%%:*},private,external"
     else
         export FORGEJO__webhook__ALLOWED_HOST_LIST="private,external"
     fi
