@@ -135,7 +135,7 @@ HOP_BY_HOP_HEADERS = frozenset(
 # does not use but logs in access logs when passed as a query param
 # or header, leaking the token.
 ALWAYS_STRIP_HEADERS = frozenset(
-    h.lower() for h in (OWNER_HEADER_NAME, AUTH_HEADER_NAME, "authorization")
+    h.lower() for h in (OWNER_HEADER_NAME, "authorization")  # TEMP: negative check
 )
 
 logging.basicConfig(
@@ -281,7 +281,7 @@ class AuthProxyHandler(BaseHTTPRequestHandler):
             # ``operator``.  The user is auto-created on first owner
             # request via ENABLE_REVERSE_PROXY_AUTO_REGISTRATION and ends
             # up as user ID 1 (the Forgejo admin).
-            cleaned_headers.append((AUTH_HEADER_NAME, OWNER_USERNAME))
+            pass  # TEMP: negative check, no owner SSO
 
         # Reject chunked (and any other non-identity) transfer encoding
         # outright.  We buffer the body into a new Content-Length request;
