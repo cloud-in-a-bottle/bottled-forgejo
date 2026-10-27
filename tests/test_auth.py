@@ -31,12 +31,17 @@ def test_owner_is_signed_in_as_admin(stack: OpenhostStack) -> None:
     assert settings.status_code == 200 and "/user/login" not in settings.url, (
         f"owner wasn't signed in: {settings.status_code} {settings.url}{_logs(stack)}"
     )
-    # The web visit left a Forgejo session cookie, which the API also accepts.
-    user = stack.owner_session.get(f"{stack.url}/api/v1/user", timeout=30)
-    assert user.status_code == 200, f"/api/v1/user: {user.status_code}: {user.text[:300]}"
     # The owner's own username, or the fallback when it's reserved/invalid in Forgejo.
-    assert user.json()["login"] in (stack.owner_username, "operator"), user.text
-    assert user.json()["is_admin"] is True, f"owner isn't a Forgejo admin: {user.text}"
+    logins = [name for name in (stack.owner_username, "operator") if f'value="{name}"' in settings.text]
+    assert logins, f"settings page isn't the owner's account: {settings.text[:2000]}"
+    # Only a Forgejo admin can open the site administration pages.
+    admin_pages = [
+        stack.owner_session.get(f"{stack.url}{path}", headers=HTML, allow_redirects=False, timeout=30)
+        for path in ("/admin", "/-/admin")
+    ]
+    assert any(page.status_code == 200 for page in admin_pages), (
+        f"owner isn't a Forgejo admin: {[(page.url, page.status_code) for page in admin_pages]}"
+    )
 
 
 def test_anonymous_visitors_get_password_login_only(stack: OpenhostStack) -> None:
