@@ -131,16 +131,32 @@ HOP_BY_HOP_HEADERS = frozenset(
 
 # Defence in depth: always strip these from inbound requests so a
 # misconfigured router or direct container access can't inject auth.
-#
-# ``Authorization`` is deliberately passed through: it carries Forgejo's
-# own credentials (HTTP basic auth for git over HTTPS, API access tokens,
-# OAuth bearer tokens).  The router drops its own credential before the
-# request reaches us: it reads it from ``X-OpenHost-Authorization`` and
-# strips that header by name, and strips a valid platform token sent in
-# plain ``Authorization`` by value (openhost#403/#404).
 ALWAYS_STRIP_HEADERS = frozenset(
     h.lower() for h in (OWNER_HEADER_NAME, AUTH_HEADER_NAME)
 )
+
+# ``Authorization`` carries Forgejo's own credentials, so it is passed
+# through except for the ``Bearer`` scheme.  Routers before openhost#403
+# forward the owner's platform token as ``Authorization: Bearer <token>``,
+# and Forgejo would log it and echo it back in its "access token does not
+# exist" error.  Every other scheme passes: ``Basic`` (git over HTTPS with
+# a password or access token) and ``token <t>`` (Forgejo API tokens).
+#
+# Known gap: OAuth2 clients and API clients that send Forgejo tokens as
+# ``Bearer`` don't work through this proxy.  Routers on openhost#403/#404
+# or later drop their own credential themselves (they read it from
+# ``X-OpenHost-Authorization`` and strip that header by name, and strip a
+# valid platform token in plain ``Authorization`` by value); once every
+# router runs those, Bearer can pass through too.
+STRIPPED_AUTHORIZATION_SCHEMES = frozenset({"bearer"})
+
+
+def _is_stripped_authorization(name: str, value: str) -> bool:
+    if name.lower() != "authorization":
+        return False
+    scheme = value.strip().split(None, 1)[0].lower() if value.strip() else ""
+    return scheme in STRIPPED_AUTHORIZATION_SCHEMES
+
 
 logging.basicConfig(
     level=os.environ.get("AUTH_PROXY_LOG_LEVEL", "INFO"),
@@ -248,13 +264,18 @@ class AuthProxyHandler(BaseHTTPRequestHandler):
 
         # Strip (a) the owner header and X-Openhost-User (never forward
         # router-internal headers to Forgejo), (b) hop-by-hop headers
-        # (Connection, Transfer-Encoding, etc.), and (c) Content-Length
+        # (Connection, Transfer-Encoding, etc.), (c) Content-Length
         # — we rebuild the body into a buffered request below and set a
-        # fresh Content-Length from the actual bytes we send.
-        cleaned_headers = _strip_headers(
-            self.headers.items(),
-            HOP_BY_HOP_HEADERS | ALWAYS_STRIP_HEADERS | {"content-length"},
-        )
+        # fresh Content-Length from the actual bytes we send — and (d)
+        # Bearer-scheme Authorization (see STRIPPED_AUTHORIZATION_SCHEMES).
+        cleaned_headers = [
+            (k, v)
+            for k, v in _strip_headers(
+                self.headers.items(),
+                HOP_BY_HOP_HEADERS | ALWAYS_STRIP_HEADERS | {"content-length"},
+            )
+            if not _is_stripped_authorization(k, v)
+        ]
 
         # Rewrite Host from X-Forwarded-Host.  The OpenHost router
         # strips the original Host header and puts the value the

@@ -126,9 +126,20 @@ def test_platform_owner_token_does_not_reach_forgejo(stack: OpenhostStack) -> No
     minted = stack.owner_session.post(f"{stack.router_url}/api/tokens", json={"name": "forgejo-test"}, timeout=30)
     assert minted.status_code == 200, f"minting an owner token: {minted.status_code}: {minted.text[:300]}"
     owner_token = minted.json()["token"]
-    # The router takes its own token from either header and drops it before proxying. Forgejo rejects every API
-    # call, even public ones, that carries a bearer token it doesn't know ("access token does not exist", echoing
-    # the token), so this only passes if the platform token never reached Forgejo.
+    # Forgejo rejects every API call, even public ones, that carries a bearer token it doesn't know ("access token
+    # does not exist", echoing the token), so a 200 means the platform token never reached Forgejo. Newer routers
+    # drop it themselves; older ones forward it as Authorization: Bearer, which the auth proxy strips.
     for header in ("Authorization", "X-OpenHost-Authorization"):
         version = requests.get(f"{stack.url}/api/v1/version", headers={header: f"Bearer {owner_token}"}, timeout=30)
         assert version.status_code == 200, f"owner token in {header}: {version.status_code}: {version.text[:300]}"
+
+
+def test_auth_proxy_strips_bearer_authorization(stack: OpenhostStack) -> None:
+    _wait_for_forgejo(stack)
+    # Any Bearer credential is dropped before Forgejo, whether or not the router recognises it: routers before
+    # openhost#403 forward the owner's platform token that way. Forgejo would 401 an unknown bearer token here.
+    for scheme in ("Bearer", "bearer"):
+        version = requests.get(
+            f"{stack.url}/api/v1/version", headers={"Authorization": f"{scheme} not-a-forgejo-token"}, timeout=30
+        )
+        assert version.status_code == 200, f"{scheme} reached Forgejo: {version.status_code}: {version.text[:300]}"
