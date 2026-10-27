@@ -131,11 +131,15 @@ HOP_BY_HOP_HEADERS = frozenset(
 
 # Defence in depth: always strip these from inbound requests so a
 # misconfigured router or direct container access can't inject auth.
-# Also strip Authorization (the platform Bearer token) which Forgejo
-# does not use but logs in access logs when passed as a query param
-# or header, leaking the token.
+#
+# ``Authorization`` is deliberately passed through: it carries Forgejo's
+# own credentials (HTTP basic auth for git over HTTPS, API access tokens,
+# OAuth bearer tokens).  The router drops its own credential before the
+# request reaches us: it reads it from ``X-OpenHost-Authorization`` and
+# strips that header by name, and strips a valid platform token sent in
+# plain ``Authorization`` by value (openhost#403/#404).
 ALWAYS_STRIP_HEADERS = frozenset(
-    h.lower() for h in (OWNER_HEADER_NAME, AUTH_HEADER_NAME, "authorization")
+    h.lower() for h in (OWNER_HEADER_NAME, AUTH_HEADER_NAME)
 )
 
 logging.basicConfig(
@@ -242,7 +246,7 @@ class AuthProxyHandler(BaseHTTPRequestHandler):
             self.headers.get(OWNER_HEADER_NAME, "").lower() == "true"
         )
 
-        # Strip (a) the auth header and owner header (never forward
+        # Strip (a) the owner header and X-Openhost-User (never forward
         # router-internal headers to Forgejo), (b) hop-by-hop headers
         # (Connection, Transfer-Encoding, etc.), and (c) Content-Length
         # — we rebuild the body into a buffered request below and set a
