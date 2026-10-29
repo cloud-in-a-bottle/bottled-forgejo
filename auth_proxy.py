@@ -148,7 +148,7 @@ ALWAYS_STRIP_HEADERS = frozenset(
 # ``X-OpenHost-Authorization`` and strip that header by name, and strip a
 # valid platform token in plain ``Authorization`` by value); once every
 # router runs those, Bearer can pass through too.
-STRIPPED_AUTHORIZATION_SCHEMES: frozenset[str] = frozenset()
+STRIPPED_AUTHORIZATION_SCHEMES = frozenset({"bearer"})
 
 
 def _is_stripped_authorization(name: str, value: str) -> bool:
