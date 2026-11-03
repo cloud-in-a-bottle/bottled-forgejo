@@ -1,6 +1,6 @@
 # Forgejo, pinned to an exact release and its multi-arch index digest. Bump
 # both together, deliberately, after CI passes.
-FROM codeberg.org/forgejo/forgejo:15.0.11@sha256:5d050e6d623e540923ff54b1c0c7acf41c3f9174a6c7ad515cc0c63d703fcd22
+FROM codeberg.org/forgejo/forgejo:17.0.1@sha256:fcd19ff4ebc85fb098a67e8e1d0d5a84d07dd6e8a23edcfdfd5b71a6178953be
 
 # Runtime additions on top of the upstream Forgejo image:
 #
