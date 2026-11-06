@@ -1,10 +1,13 @@
 [app]
 name = "forgejo"
-version = "0.3.0"
+version = "1.0.0"
 description = "Forgejo code hosting with Cloud in a Bottle SSO admin and password auth for invited users"
 
 [runtime.container]
 image = "Dockerfile"
+# Cloud in a Bottle pulls this signed prebuilt image (built from the release tag's commit by CI) instead of building
+# `image`. If you fork this app and change it, comment this line out so your instance builds `image` instead.
+prebuilt_image = "registry.cloudinabottle.org/bottled-forgejo"
 port = 3000
 
 [[ports]]
