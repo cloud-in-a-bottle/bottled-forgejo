@@ -72,6 +72,13 @@ All persistent data lives under `$OPENHOST_APP_DATA_DIR/`:
 
 About 512 MB RAM and 0.5 CPU cores.
 
+## Prebuilt image
+
+`cloudinabottle.toml` sets `prebuilt_image`, so Cloud in a Bottle pulls our
+signed prebuilt image (built by CI from each release tag) instead of building
+the Dockerfile. To fork and modify this app, comment out `prebuilt_image` so
+your instance builds from source.
+
 ## License
 
 Forgejo is licensed under the GNU General Public License v3.0 (GPL-3.0). The
